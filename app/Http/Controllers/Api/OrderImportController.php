@@ -54,6 +54,32 @@ class OrderImportController extends Controller
         ], 201);
     }
 
+    
+// In OrderController.php
+public function pendingForAssignment($projectId, Request $request)
+{
+    $query = Order::where('project_id', $projectId)
+        ->whereNull('assigned_to')
+        ->whereIn('workflow_state', ['QUEUED_DRAW', 'REJECTED_BY_CHECK', 'REJECTED_BY_QA'])
+        ->with('project:id,name,code');
+
+    if ($request->queue_state) {
+        $query->where('workflow_state', $request->queue_state);
+    }
+
+    $orders = $query->orderByRaw("CASE priority 
+        WHEN 'urgent' THEN 1 
+        WHEN 'high' THEN 2 
+        WHEN 'normal' THEN 3 
+        WHEN 'low' THEN 4 
+        ELSE 5 END")
+        ->orderBy('received_at', 'asc')
+        ->get(['id', 'order_number', 'priority', 'workflow_state', 'received_at']);
+
+    return response()->json($orders);
+}
+
+
     /**
      * Update an import source.
      */

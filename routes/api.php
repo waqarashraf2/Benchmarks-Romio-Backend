@@ -10,11 +10,55 @@ use App\Http\Controllers\Api\MonthLockController;
 use App\Http\Controllers\Api\OrderImportController;
 use App\Http\Controllers\Api\ChecklistController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\OrderAssignmentController;
 use App\Http\Controllers\Api\HealthController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\RateLimiter;
+use App\Http\Controllers\ManagerDashboardController;
+
+
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::post('/orders/{order}/assign', [OrderAssignmentController::class, 'assign']);
+    Route::put('/orders/{order}/reassign', [OrderAssignmentController::class, 'reassign']);
+});
+
+
+// routes/api.php
+
+
+// Protected routes (add your auth middleware)
+Route::middleware(['auth:sanctum'])->group(function () {
+    // Manager Dashboard Routes
+    Route::prefix('manager')->group(function () {
+        Route::get('/dashboard', [ManagerDashboardController::class, 'dashboard']);
+        Route::get('/orders', [ManagerDashboardController::class, 'getOrders']);
+        Route::get('/orders/{order}', [ManagerDashboardController::class, 'getOrderDetails']);
+        Route::get('/orders/{order}/timeline', [ManagerDashboardController::class, 'getOrderTimeline']);
+        
+        // QA Users route
+        Route::get('/qa-users', [ManagerDashboardController::class, 'getQaUsers']);
+        
+        // Reassignment routes
+        Route::post('/orders/{order}/reassign', [ManagerDashboardController::class, 'reassignRejected']);
+        Route::post('/orders/bulk-assign', [ManagerDashboardController::class, 'bulkAssign']);
+        
+        // Analytics
+        Route::get('/rejection-analytics', [ManagerDashboardController::class, 'getRejectionAnalytics']);
+        
+        // Assignment routes
+        Route::get('/available-workers', [ManagerDashboardController::class, 'getAvailableWorkers']);
+        Route::post('/orders/{order}/assign', [ManagerDashboardController::class, 'assignOrder']);
+        
+        // Order management
+        Route::post('/orders/{order}/hold', [ManagerDashboardController::class, 'holdOrder']);
+        Route::post('/orders/{order}/resume', [ManagerDashboardController::class, 'resumeOrder']);
+        
+        // Queue health
+        Route::get('/queue-health', [ManagerDashboardController::class, 'getQueueHealth']);
+    });
+});
 
 // ── Health Check (no auth required) ──
 Route::get('/health', [HealthController::class, 'check']);
@@ -126,7 +170,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'throttle:api'])->group(fun
     // ═══════════════════════════════════════════
     // MANAGEMENT ROUTES (ops_manager, director, ceo)
     // ═══════════════════════════════════════════
-    Route::middleware('role:ceo,director,operations_manager')->group(function () {
+    Route::middleware('role:ceo,director,operations_manager,manger,drawer')->group(function () {
 
         // Projects
         Route::apiResource('projects', ProjectController::class);

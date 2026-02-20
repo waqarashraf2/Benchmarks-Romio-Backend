@@ -267,7 +267,7 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
-        if (!in_array($user->role, ['ceo', 'director', 'operations_manager'])) {
+        if (!in_array($user->role, ['ceo', 'director', 'operations_manager', 'manager'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -487,7 +487,7 @@ class DashboardController extends Controller
         $user = $request->user();
         $query = User::where('is_active', true)->where('is_absent', true);
 
-        if (!in_array($user->role, ['ceo', 'director'])) {
+        if (!in_array($user->role, ['ceo', 'director','manger'])) {
             if ($user->project_id) {
                 $query->where('project_id', $user->project_id);
             }
@@ -500,16 +500,11 @@ class DashboardController extends Controller
         ]);
     }
 
-    /**
-     * GET /dashboard/daily-operations
-     * CEO Daily Operations View - All projects with layer-wise worker activity and QA metrics.
-     * Shows Drawer/Designer → Checker → QA work per project for a specific date.
-     * Cached for 5 minutes to reduce database load.
-     */
+
     public function dailyOperations(Request $request)
     {
         $user = $request->user();
-        if (!in_array($user->role, ['ceo', 'director'])) {
+        if (!in_array($user->role, ['ceo', 'director','manager'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 

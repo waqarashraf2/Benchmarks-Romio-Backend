@@ -12,7 +12,7 @@ class UpdateProjectRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return in_array(auth()->user()->role, ['ceo', 'director', 'operations_manager']);
+        return in_array(auth()->user()->role, ['ceo', 'director', 'operations_manager','manger']);
     }
 
     /**

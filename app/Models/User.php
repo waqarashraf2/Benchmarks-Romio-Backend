@@ -86,6 +86,13 @@ class User extends Authenticatable
         return $this->hasMany(ActivityLog::class);
     }
 
+    public function managedProjects()
+{
+    // Adjust this based on your actual relationship structure
+    // This could be through a team, direct assignment, etc.
+    return $this->belongsToMany(Project::class, 'project_managers', 'user_id', 'project_id');
+}
+
     public function sessions()
     {
         return $this->hasMany(UserSession::class);

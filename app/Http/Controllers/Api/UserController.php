@@ -7,6 +7,11 @@ use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Models\ActivityLog;
 use App\Models\User;
+use App\Models\ChecklistTemplate;
+use App\Models\Order;
+use App\Models\OrderImportLog;
+use App\Models\OrderImportSource;
+use App\Models\Project;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 
@@ -199,4 +204,23 @@ class UserController extends Controller
             'data' => $user->fresh(),
         ]);
     }
+
+
+    
+public function projectDrawers($projectId)
+{
+    $drawers = User::where('project_id', $projectId)
+        ->where('role', 'drawer')
+        ->where('is_active', true)
+        ->where('is_absent', false)
+        ->select('id', 'name', 'email', 'wip_count', 'today_completed', 'last_activity')
+        ->orderBy('name')
+        ->get();
+
+    return response()->json($drawers);
+}
+
+// In WorkflowController.php
+
+
 }

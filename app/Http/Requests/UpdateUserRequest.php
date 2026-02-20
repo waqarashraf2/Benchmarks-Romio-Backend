@@ -12,7 +12,7 @@ class UpdateUserRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return in_array(auth()->user()->role, ['ceo', 'director', 'operations_manager']);
+        return in_array(auth()->user()->role, ['ceo', 'director', 'operations_manager','manger']);
     }
 
     /**
@@ -25,7 +25,7 @@ class UpdateUserRequest extends FormRequest
         return [
             'name' => 'sometimes|string|max:255',
             'email' => ['sometimes', 'email', Rule::unique('users', 'email')->ignore($this->user)],
-            'password' => 'sometimes|string|min:8|confirmed',
+            'password' => 'sometimes|string|min:8',
             'role' => 'sometimes|in:ceo,director,operations_manager,qa,checker,drawer,designer,accounts_manager',
             'country' => 'sometimes|string|max:255',
             'department' => 'sometimes|in:floor_plan,photos_enhancement',

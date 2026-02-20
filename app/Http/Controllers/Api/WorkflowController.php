@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\WorkItem;
 use App\Models\Project;
+use App\Models\User;
 use App\Services\StateMachine;
 use App\Services\AssignmentEngine;
 use App\Services\AuditService;
@@ -15,6 +16,100 @@ use Illuminate\Support\Facades\DB;
 
 class WorkflowController extends Controller
 {
+
+
+    public function bulkAssign(Request $request)
+{
+    $request->validate([
+        'drawer_id' => 'required|exists:users,id',
+        'order_ids' => 'required|array|min:1',
+        'order_ids.*' => 'exists:orders,id',
+        'project_id' => 'nullable|exists:projects,id'
+    ]);
+
+    $drawer = User::findOrFail($request->drawer_id);
+    
+    // Verify drawer is active and not absent
+    if (!$drawer->is_active || $drawer->is_absent) {
+        return response()->json(['error' => 'Drawer is not available for assignment'], 422);
+    }
+
+    $assigned = [];
+    $errors = [];
+
+    DB::transaction(function () use ($request, $drawer, &$assigned, &$errors) {
+        foreach ($request->order_ids as $orderId) {
+            $order = Order::where('id', $orderId)
+                ->whereNull('assigned_to')
+                ->lockForUpdate()
+                ->first();
+
+            if (!$order) {
+                $errors[] = "Order {$orderId} is no longer available";
+                continue;
+            }
+
+            // Verify order is in correct state
+            if (!in_array($order->workflow_state, ['QUEUED_DRAW', 'REJECTED_BY_CHECK', 'REJECTED_BY_QA'])) {
+                $errors[] = "Order {$order->order_number} is not available for assignment";
+                continue;
+            }
+
+            // Check drawer's WIP cap
+            $project = $order->project;
+            $wipCap = $project->wip_cap ?? 1;
+            $currentWip = Order::where('assigned_to', $drawer->id)
+                ->whereIn('workflow_state', ['IN_DRAW', 'IN_DESIGN'])
+                ->count();
+
+            if ($currentWip >= $wipCap) {
+                $errors[] = "Drawer has reached WIP capacity";
+                break;
+            }
+
+            // Assign the order
+            $order->update([
+                'assigned_to' => $drawer->id,
+                'team_id' => $drawer->team_id,
+                'workflow_state' => 'IN_DRAW'
+            ]);
+
+            // Create work item
+            WorkItem::create([
+                'order_id' => $order->id,
+                'project_id' => $order->project_id,
+                'stage' => 'DRAW',
+                'assigned_user_id' => $drawer->id,
+                'team_id' => $drawer->team_id,
+                'status' => 'in_progress',
+                'assigned_at' => now(),
+                'started_at' => now(),
+                'attempt_number' => $order->attempt_draw + 1,
+            ]);
+
+            // Update drawer's WIP count
+            $drawer->increment('wip_count');
+            
+            $assigned[] = $order->order_number;
+
+            // Log the assignment
+            ActivityLog::log(
+                'bulk_assign',
+                Order::class,
+                $order->id,
+                ['assigned_to' => null],
+                ['assigned_to' => $drawer->id, 'assigned_by' => auth()->id()]
+            );
+        }
+    });
+
+    return response()->json([
+        'success' => true,
+        'assigned' => $assigned,
+        'errors' => $errors,
+        'message' => count($assigned) . ' orders assigned successfully'
+    ]);
+}
     // ═══════════════════════════════════════════
     // WORKER ENDPOINTS (Production roles)
     // ═══════════════════════════════════════════
@@ -151,6 +246,18 @@ class WorkflowController extends Controller
             'message' => 'Order rejected and returned to queue.',
         ]);
     }
+    public function worker(Request $request)
+{
+    $user = $request->user();
+
+    // Temporarily include all assigned orders, not just IN_* states
+    $currentOrder = Order::where('assigned_to', $user->id)
+        // ->whereIn('workflow_state', ['IN_DRAW', 'IN_CHECK', 'IN_QA', 'IN_DESIGN'])
+        ->with('project:id,name,code')
+        ->first();
+
+    // ... rest of the code
+}
 
     /**
      * POST /workflow/orders/{id}/hold

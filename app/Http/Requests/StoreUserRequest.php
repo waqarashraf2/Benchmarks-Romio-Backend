@@ -11,7 +11,7 @@ class StoreUserRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return in_array(auth()->user()->role, ['ceo', 'director', 'operations_manager']);
+        return in_array(auth()->user()->role, ['ceo', 'director', 'operations_manager','manger']);
     }
 
     /**
@@ -24,7 +24,7 @@ class StoreUserRequest extends FormRequest
         return [
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => 'required|string|min:8',
             'role' => 'required|in:ceo,director,operations_manager,qa,checker,drawer,designer,accounts_manager',
             'country' => 'required|string|max:255',
             'department' => 'required|in:floor_plan,photos_enhancement',
